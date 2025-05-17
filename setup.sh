@@ -367,4 +367,46 @@ setup_python_environment() {
             python -m pip install torch torchvision torchaudio
         else
             print_info "Installing PyTorch CPU version..."
-            python -m pip install torch torchvision torchaudio --index-url
+            python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        fi
+    else
+        print_info "PyTorch seems to be already installed."
+    fi
+    
+    print_step "Setting up Jupyter kernel"
+    # (Jupyter kernel setup as before)
+    PROJECT_NAME=$(basename "$PWD")
+    KERNEL_NAME="${PROJECT_NAME}_kernel_py${PYTHON_VERSION_MAJOR_MINOR}"
+    DISPLAY_NAME="${PROJECT_NAME} (Python ${PYTHON_VERSION})"
+    python -m ipykernel install --user --name "${KERNEL_NAME}" --display-name "${DISPLAY_NAME}"
+    print_info "Jupyter kernel installed as '${DISPLAY_NAME}'"
+    
+    print_step "Creating activation script (activate.sh)"
+    # (activate.sh creation as before)
+    cat > activate.sh << EOL
+#!/bin/bash
+source "${PWD}/${VENV_NAME}/bin/activate"
+if [ -f .env ]; then set -a; source .env; set +a; fi
+echo "Virtual environment activated with Python ${PYTHON_VERSION}. Run 'deactivate' to exit."
+EOL
+    chmod +x activate.sh
+    print_info "Created activate.sh - Run 'source activate.sh' to activate."
+
+    if declare -f deactivate > /dev/null && [[ "$(type -t deactivate)" == "function" ]]; then
+      deactivate
+    fi
+}
+
+# Main function
+main() {
+    print_step "Starting Research Environment Setup"
+    setup_python_environment
+    print_step "Environment Setup Complete!"
+    print_info "Your Python environment and Jupyter kernel are ready."
+    print_info "To activate: source activate.sh"
+    print_info "Then, to start Jupyter Lab: jupyter-lab"
+    print_info "\nNext, run './download_data.sh' for research data."
+}
+
+# Run main
+main
