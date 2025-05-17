@@ -1,3 +1,15 @@
+# credentials:
+credentials.json
+# secrets:
+secrets.json
+
+# archive from debugging and data
+/archive
+/data_dump
+
+# Lori's scp dump folder
+/from_claude 
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
