@@ -355,6 +355,144 @@ setup_python_environment() {
         print_warning "requirements.txt not found. Skipping package installation from file."
     fi
     
+    print_step "Handling PyTorch installation"
+
+    # Determine system capabilities for PyTorch
+    CAN_USE_NVIDIA_GPU=false
+    SHOULD_USE_MPS=false # For Apple Silicon
+
+    if command_exists nvidia-smi; then
+        print_info "nvidia-smi command found."
+        # Further check if CUDA is usable by querying nvidia-smi
+        # Simple check: just presence of nvidia-smi implies we should try GPU version
+        # More advanced: query CUDA version from nvidia-smi and match with PyTorch's CUDA requirements
+        # For now, presence is the trigger.
+        # Example to get CUDA version from driver:
+        # NVIDIA_DRIVER_CUDA_VERSION_RAW=$(nvidia-smi --query-gpu=cuda_version --format=csv,noheader | head -n 1)
+        # print_info "NVIDIA driver reports CUDA compatibility up to: $NVIDIA_DRIVER_CUDA_VERSION_RAW"
+        CAN_USE_NVIDIA_GPU=true
+    else
+        print_info "nvidia-smi command NOT found. Assuming no NVIDIA GPU or drivers not in PATH."
+    fi
+
+    if [[ "$(uname)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+        SHOULD_USE_MPS=true
+        CAN_USE_NVIDIA_GPU=false # MPS takes precedence on Apple Silicon Macs
+        print_info "Apple Silicon (arm64) detected. Will aim for PyTorch with MPS support."
+    fi
+
+    # Define PyTorch installation commands
+    # Ensure this CUDA version aligns with your drivers and desired PyTorch version
+    # You can find the correct command on https://pytorch.org/get-started/locally/
+    PYTORCH_CUDA_VERSION_TAG="cu121" # For CUDA 12.1. Adjust if your drivers need a different one (e.g. cu118 for CUDA 11.8)
+    
+    CMD_PYTORCH_GPU="python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${PYTORCH_CUDA_VERSION_TAG}"
+    CMD_PYTORCH_MPS="python -m pip install torch torchvision torchaudio" # Standard install for MPS
+    CMD_PYTORCH_CPU="python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu"
+
+    # Logic to decide if PyTorch needs to be installed or reinstalled
+    NEEDS_PYTORCH_ACTION=true
+    CURRENT_TORCH_IS_GPU=false
+    CURRENT_TORCH_IS_MPS=false
+
+    if python -m pip show torch > /dev/null 2>&1; then
+        print_info "PyTorch is already installed. Checking its capabilities..."
+        # Check for CUDA
+        if $CAN_USE_NVIDIA_GPU; then
+            # Temporarily allow script to continue if python command fails (e.g. torch import error)
+            set +e
+            PYTHON_CUDA_CHECK_OUTPUT=$(python -c "import torch; print(torch.cuda.is_available())" 2>/dev/null)
+            PYTHON_CMD_EXIT_CODE=$?
+            set -e # Re-enable exit on error
+
+            if [ $PYTHON_CMD_EXIT_CODE -eq 0 ] && [ "$PYTHON_CUDA_CHECK_OUTPUT" == "True" ]; then
+                CURRENT_TORCH_IS_GPU=true
+                print_info "Existing PyTorch installation supports CUDA."
+            else
+                print_warning "Existing PyTorch does not support CUDA (is_available: $PYTHON_CUDA_CHECK_OUTPUT, exit code: $PYTHON_CMD_EXIT_CODE)."
+            fi
+        fi
+        # Check for MPS (only if on Apple Silicon)
+        if $SHOULD_USE_MPS; then
+            set +e
+            PYTHON_MPS_CHECK_OUTPUT=$(python -c "import torch; print(hasattr(torch.backends, 'mps') and torch.backends.mps.is_available())" 2>/dev/null)
+            PYTHON_CMD_EXIT_CODE=$?
+            set -e
+
+            if [ $PYTHON_CMD_EXIT_CODE -eq 0 ] && [ "$PYTHON_MPS_CHECK_OUTPUT" == "True" ]; then
+                CURRENT_TORCH_IS_MPS=true
+                print_info "Existing PyTorch installation supports MPS."
+            else
+                print_warning "Existing PyTorch does not support MPS (is_available: $PYTHON_MPS_CHECK_OUTPUT, exit code: $PYTHON_CMD_EXIT_CODE)."
+            fi
+        fi
+
+        # Decide if reinstallation is needed
+        if $CAN_USE_NVIDIA_GPU && $CURRENT_TORCH_IS_GPU; then
+            print_info "Correct GPU (CUDA) version of PyTorch already installed. No action needed."
+            NEEDS_PYTORCH_ACTION=false
+        elif $SHOULD_USE_MPS && $CURRENT_TORCH_IS_MPS; then
+            print_info "Correct MPS version of PyTorch already installed. No action needed."
+            NEEDS_PYTORCH_ACTION=false
+        elif $CAN_USE_NVIDIA_GPU && ! $CURRENT_TORCH_IS_GPU; then
+            print_warning "NVIDIA GPU detected, but current PyTorch is not CUDA-enabled. Will reinstall."
+            NEEDS_PYTORCH_ACTION=true
+        elif $SHOULD_USE_MPS && ! $CURRENT_TORCH_IS_MPS; then
+            print_warning "Apple Silicon detected, but current PyTorch is not MPS-enabled. Will reinstall."
+            NEEDS_PYTORCH_ACTION=true
+        elif ! $CAN_USE_NVIDIA_GPU && ! $SHOULD_USE_MPS; then
+             print_info "No specialized GPU (NVIDIA/MPS) detected to target. Existing PyTorch (CPU) is assumed sufficient."
+             NEEDS_PYTORCH_ACTION=false
+        fi
+
+        if $NEEDS_PYTORCH_ACTION && ( $CAN_USE_NVIDIA_GPU || $SHOULD_USE_MPS ) ; then
+            print_info "Uninstalling existing PyTorch to install a different version..."
+            python -m pip uninstall -y torch torchvision torchaudio
+        fi
+
+    else
+        print_info "PyTorch not found. Will proceed with installation."
+        NEEDS_PYTORCH_ACTION=true
+    fi
+
+
+    if $NEEDS_PYTORCH_ACTION; then
+        INSTALL_CMD=""
+        TARGET_TYPE=""
+        if $CAN_USE_NVIDIA_GPU; then
+            print_info "Attempting to install PyTorch with CUDA (${PYTORCH_CUDA_VERSION_TAG}) support..."
+            INSTALL_CMD="$CMD_PYTORCH_GPU"
+            TARGET_TYPE="NVIDIA GPU (CUDA ${PYTORCH_CUDA_VERSION_TAG})"
+        elif $SHOULD_USE_MPS; then
+            print_info "Attempting to install PyTorch with Apple Silicon (MPS) support..."
+            INSTALL_CMD="$CMD_PYTORCH_MPS"
+            TARGET_TYPE="Apple Silicon (MPS)"
+        else
+            print_info "Attempting to install PyTorch (CPU version)..."
+            INSTALL_CMD="$CMD_PYTORCH_CPU"
+            TARGET_TYPE="CPU"
+        fi
+
+        print_info "Executing: $INSTALL_CMD"
+        if eval "$INSTALL_CMD"; then # Use eval to handle potential complexities in command string
+            print_info "PyTorch ($TARGET_TYPE) installation command executed."
+            # Verification step
+            print_info "Verifying PyTorch installation..."
+            set +e
+            VERIFY_OUTPUT=$(python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'MPS available: {hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()}')" 2>&1)
+            VERIFY_EXIT_CODE=$?
+            set -e
+            if [ $VERIFY_EXIT_CODE -eq 0 ]; then
+                print_info "Verification output:\n$VERIFY_OUTPUT"
+            else
+                print_error "Failed to verify PyTorch after installation. Output:\n$VERIFY_OUTPUT"
+            fi
+        else
+            print_error "PyTorch ($TARGET_TYPE) installation failed. Please check the output above."
+            print_info "You may need to install PyTorch manually from https://pytorch.org/get-started/locally/ according to your system configuration."
+        fi
+    fi
+    
     print_step "Handling PyTorch installation (if not already installed)"
     # (PyTorch logic as before)
     if ! python -m pip show torch > /dev/null 2>&1; then
