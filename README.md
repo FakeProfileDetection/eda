@@ -4,9 +4,14 @@ EDA and analysis on our dataset
 # Foucs
 Analyzing and processing the dataset.
 
-# Datasets
+# Datasets on shared Google Drive
 - The "loadable data" (filtered bad data) is located on the shared drive at https://drive.google.com/drive/folders/1WmdBnrZVIR_I69sMW7i-lcBW-qjQopJl?usp=drive_link.
 - The pre-filter (i.e., contains bad data) is located on the shared drive at https://drive.google.com/drive/folders/1QNuhGxLAC3WWOeK8v7KwgA0oQbD2TuoX?usp=drive_link.
+
+# Dataset from Google bucket
+The primary dataset for this project ("loadable_Combined_HU_HT.tar.gz") is downloaded from Google Cloud Storage using the scripts provided in this repository. This ensures you get the correct version of the data integrated with the project setup.
+
+The script will download the data to a `data_dump` directory in your project root.
 
 # References
 TypeNet paper:\
@@ -18,155 +23,35 @@ This guide walks you through setting up the complete research environment and da
 
 ## Quick Start
 
-For team members in a hurry, run these commands:
+For team members, follow these steps:
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-team/your-repo.git
+# 1. Clone the repository
+git clone [https://github.com/your-team/your-repo.git](https://github.com/your-team/your-repo.git) # <-- Make sure to use your actual repository URL
 cd your-repo
 
-# Make the setup script executable (Linux/Mac only)
+# 2. Make the setup and data download scripts executable (Linux/Mac only)
 chmod +x setup.sh
+chmod +x download_data.sh
+chmod +x utils.sh # (Utility script, also needs to be executable if directly run, though usually sourced)
 
-# Setup everything (environment + data)
+# 3. Set up the Python environment
 # On Linux/Mac:
 ./setup.sh
-# On Windows:
-setup.bat
+# On Windows (if a setup.bat is provided and updated for this flow):
+# setup.bat # Ensure setup.bat is updated for the new two-step process
 
-# Activate the environment
+# 4. Download the research data
+# On Linux/Mac:
+./download_data.sh
+# On Windows (if a download_data.bat is provided):
+# download_data.bat
+
+# 5. Activate the environment
 # On Linux/Mac:
 source activate.sh
 # On Windows:
-activate.bat
+# activate.bat
 
-# Start Jupyter Lab
+# 6. Start Jupyter Lab
 jupyter-lab
-```
-
-## What Gets Set Up
-
-The setup script creates a complete environment with:
-
-1. **Python 3.12.5** virtual environment (consistent for all team members)
-2. **GPU-optimized PyTorch** (if a compatible GPU is detected)
-3. **Jupyter Lab** with a dedicated kernel for this project
-4. **Research data** downloaded from our shared Google Drive
-5. **Core data science packages**:
-   - polars, pandas, numpy, scikit-learn
-   - matplotlib, seaborn
-   - jupyterlab, ipykernel
-   - and more
-
-## Python Version Options
-
-The setup script provides several options if Python 3.12.5 is not found:
-
-1. **Install Python 3.12.5 locally** in the project directory
-2. **Install using pyenv** if available on your system
-3. **Install manually** from python.org or your system's package manager
-
-## For pyenv Users
-
-The setup script has improved pyenv integration:
-
-- Properly initializes pyenv in the current shell
-- Detects Python 3.12.5 in your pyenv installations
-- Offers to install it via pyenv if not found
-- Creates a properly isolated virtual environment
-
-## Using the Environment
-
-### Activating the Environment
-
-```bash
-# On Linux/Mac:
-source activate.sh
-
-# On Windows:
-activate.bat
-```
-
-### Starting Jupyter Lab
-
-After activating the environment:
-
-```bash
-jupyter-lab
-```
-
-### Working with the Research Data
-
-After setup, the data is available in the `data_dump` directory and via the `DATA_PATH` environment variable:
-
-```python
-import os
-import pandas as pd
-
-# Get the data directory
-data_path = os.environ['DATA_PATH']
-
-# Load a specific data file
-df = pd.read_csv(f"{data_path}/user-1/data1.csv")
-```
-
-### Using the Helper Module
-
-We provide a helper module for common data operations:
-
-```python
-from team_data import data
-
-# Get all available user IDs
-user_ids = data.get_user_ids()
-
-# Load data for a specific user
-user_data = data.load_user_file(1, "data1.csv")
-```
-
-## Troubleshooting
-
-### Python Version Issues
-
-If you encounter problems with Python 3.12.5:
-
-- **For pyenv users**: Run `pyenv init` and follow the instructions to properly set up your shell
-- **For local Python**: If the local Python build fails, install build dependencies first:
-  - Ubuntu/Debian: `sudo apt-get install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev`
-  - macOS with Homebrew: `brew install openssl readline sqlite3 xz zlib`
-
-### Package Installation Issues
-
-If you encounter issues during package installation:
-
-```bash
-# Activate the environment
-source activate.sh  # or activate.bat on Windows
-
-# Install a specific package manually
-pip install package-name
-```
-
-### Data Access Issues
-
-If you have trouble accessing the data:
-
-1. Ensure your Google account has access to the shared folder
-2. Delete `credentials.json` and run `python simple_setup.py` again
-3. Check that the `DATA_PATH` environment variable is set correctly
-
-### GPU Issues
-
-If PyTorch isn't using your GPU:
-
-```python
-import torch
-print(f"CUDA available: {torch.cuda.is_available()}")
-print(f"Device count: {torch.cuda.device_count()}")
-```
-
-If CUDA is not available but you have an NVIDIA GPU, reinstall PyTorch:
-
-```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
