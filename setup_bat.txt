@@ -1,0 +1,136 @@
+@echo off
+REM setup.bat - Complete environment setup script for Windows
+REM This script ensures Python 3.12.5 is used and sets up the entire environment
+
+setlocal EnableDelayedExpansion
+
+REM Set target Python version
+set PYTHON_VERSION=3.12.5
+set VENV_NAME=venv-%PYTHON_VERSION%
+
+echo.
+echo === Checking Python Environment ===
+echo.
+
+REM Check if python is installed and get version
+where python >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Python not found. Please install Python %PYTHON_VERSION% and run this script again.
+    exit /b 1
+)
+
+for /f "tokens=2" %%V in ('python --version 2^>^&1') do set SYSTEM_PYTHON_VERSION=%%V
+echo System Python version: %SYSTEM_PYTHON_VERSION%
+
+REM Check Python version
+if not "%SYSTEM_PYTHON_VERSION%"=="%PYTHON_VERSION%" (
+    echo WARNING: System Python (%SYSTEM_PYTHON_VERSION%) does not match required version (%PYTHON_VERSION%).
+    echo WARNING: We recommend installing Python %PYTHON_VERSION%.
+    
+    set /p CONTINUE=Continue with system Python %SYSTEM_PYTHON_VERSION%? (y/N): 
+    if /i not "!CONTINUE!"=="y" (
+        echo Setup canceled. Please install Python %PYTHON_VERSION% and run this script again.
+        exit /b 0
+    )
+)
+
+REM Create virtual environment if it doesn't exist
+if not exist "%VENV_NAME%" (
+    echo.
+    echo === Creating virtual environment ===
+    echo.
+    python -m venv %VENV_NAME%
+) else (
+    echo Virtual environment %VENV_NAME% already exists.
+)
+
+REM Activate virtual environment
+echo.
+echo === Activating virtual environment ===
+echo.
+call %VENV_NAME%\Scripts\activate.bat
+
+REM Verify Python version in virtual environment
+for /f "tokens=2" %%V in ('python --version 2^>^&1') do set VENV_PYTHON_VERSION=%%V
+echo Virtual environment Python version: %VENV_PYTHON_VERSION%
+
+REM Upgrade pip
+echo.
+echo === Upgrading pip ===
+echo.
+python -m pip install --upgrade pip
+
+REM Install packages
+echo.
+echo === Installing required packages ===
+echo.
+pip install polars pandas numpy scikit-learn matplotlib seaborn jupyterlab ipykernel tqdm python-dotenv pydrive2
+
+REM Check for GPU and install appropriate PyTorch version
+echo.
+echo === Detecting GPU for PyTorch installation ===
+echo.
+
+where nvidia-smi >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo NVIDIA GPU detected! Installing PyTorch with CUDA support...
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+) else (
+    echo No NVIDIA GPU detected. Installing PyTorch CPU version...
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+)
+
+REM Setup Jupyter kernel
+echo.
+echo === Setting up Jupyter kernel ===
+echo.
+
+REM Get project name from directory
+for %%I in ("%CD%") do set PROJECT_NAME=%%~nI
+set KERNEL_NAME=%PROJECT_NAME%_kernel
+set DISPLAY_NAME=%PROJECT_NAME% (Python %PYTHON_VERSION%)
+
+python -m ipykernel install --user --name "%KERNEL_NAME%" --display-name "%DISPLAY_NAME%"
+echo Jupyter kernel installed as '%DISPLAY_NAME%'
+
+REM Create activation script
+echo.
+echo === Creating activation script ===
+echo.
+
+(
+echo @echo off
+echo REM Activate the virtual environment
+echo call %VENV_NAME%\Scripts\activate.bat
+echo.
+echo REM Set environment variables from .env if it exists
+echo if exist .env ^(
+echo     for /F "tokens=*" %%%%A in ^(.env^) do ^(
+echo         set %%%%A
+echo     ^)
+echo ^)
+echo.
+echo echo Virtual environment activated with Python %PYTHON_VERSION%. Run 'deactivate' to exit.
+) > activate.bat
+
+echo Created activate.bat - Run 'activate.bat' to activate the environment
+
+REM Download team data
+if exist "simple_setup.py" (
+    echo.
+    echo === Downloading team data ===
+    echo.
+    python simple_setup.py
+) else (
+    echo WARNING: simple_setup.py not found. Skipping data download.
+)
+
+echo.
+echo === Setup complete! ===
+echo.
+echo To activate the environment: activate.bat
+echo To start Jupyter Lab: jupyter-lab
+echo.
+
+REM Deactivate virtual environment
+deactivate
