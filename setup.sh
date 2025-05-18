@@ -174,15 +174,16 @@ install_jupyter_kernel() {
   print_info "Jupyter kernel '${kernel_name}' installed"
 }
 
-make_activate_script() {
-  cat > activate.sh << EOF
-#!/usr/bin/env bash
-source "\${BASH_SOURCE%/*}/${VENV_NAME}/bin/activate"
-if [[ -f .env ]]; then set -a; source .env; set +a; fi
-echo "Environment activated. Run 'deactivate' to exit."
-EOF
-  chmod +x activate.sh
-}
+# Not working. Use existing activate.sh
+# make_activate_script() {
+#   cat > activate.sh << EOF
+# #!/usr/bin/env bash
+# source "\${BASH_SOURCE%/*}/${VENV_NAME}/bin/activate"
+# if [[ -f .env ]]; then set -a; source .env; set +a; fi
+# echo "Environment activated. Run 'deactivate' to exit."
+# EOF
+#   chmod +x activate.sh
+# }
 
 # --------------------------- main ---------------------------------------------
 print_step "Bootstrap starting (non‑interactive=$NON_INTERACTIVE)"
