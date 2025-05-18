@@ -27,8 +27,8 @@ For team members, follow these steps:
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/your-team/your-repo.git](https://github.com/your-team/your-repo.git) # <-- Make sure to use your actual repository URL
-cd your-repo
+git clone https://github.com/your-team/your-repo.git](https://github.com/your-team/your-repo.git)](https://github.com/FakeProfileDetection/eda.git
+cd  eda
 
 # 2. Make the setup and data download scripts executable (Linux/Mac only)
 chmod +x setup.sh
@@ -55,5 +55,3 @@ source activate.sh
 # On Windows:
 # activate.bat
 
-# 6. Start Jupyter Lab
-jupyter-lab
