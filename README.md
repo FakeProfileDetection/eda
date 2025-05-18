@@ -43,17 +43,17 @@ chmod +x utils.sh # (Utility script, also needs to be executable if directly run
 # On Windows (if a setup.bat is provided and updated for this flow):
 # setup.bat # Ensure setup.bat is updated for the new two-step process
 
+# 4. Activate the environment
+./activate.sh
+# On Windows:
+# activate.bat
+
 # 4. Download the research data
 # On Linux/Mac:
 ./download_data.sh
-# If you are connecting remotely, use the --headless flab
+# If you are connecting remotely, use the --headless flag
 # ./download_data.sh --headless
 # On Windows (if a download_data.bat is provided):
 # download_data.bat
 
-# 5. Activate the environment
-# On Linux/Mac:
-source activate.sh
-# On Windows:
-# activate.bat
 
