@@ -44,6 +44,8 @@ chmod +x utils.sh # (Utility script, also needs to be executable if directly run
 # 4. Download the research data
 # On Linux/Mac:
 ./download_data.sh
+# If you are connecting remotely, use the --headless flab
+# ./download_data.sh --headless
 # On Windows (if a download_data.bat is provided):
 # download_data.bat
 
