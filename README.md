@@ -18,7 +18,7 @@ TypeNet paper:\
 Acien, A., Morales, A., Monaco, J. V., Vera-Rodríguez, R., & Fiérrez, J. (2021). TypeNet: Deep Learning Keystroke Biometrics. IEEE Transactions on Biometrics, Behavior, and Identity Science. arXiv:2101.05570. https://doi.org/10.48550/arXiv.2101.05570 
 
 Outliers:\
-G Ismail M, Salem MA, Abd El Ghany MA, Aldakheel EA, Abbas S. Outlier detection for keystroke biometric user authentication. PeerJ Comput Sci. 2024 Jun 17;10:e2086. doi: 10.7717/peerj-cs.2086. PMID: 38983219; PMCID: PMC11232596.
+G Ismail M, Salem MA, Abd El Ghany MA, Aldakheel EA, Abbas S. Outlier detection for keystroke biometric user authentication. PeerJ Comput Sci. 2024 Jun 17;10:e2086. doi: 10.7717/peerj-cs.2086. PMID: 38983219; PMCID: PMC11232596.  https://pmc.ncbi.nlm.nih.gov/articles/PMC11232596/ 
 
 # Setup
 
