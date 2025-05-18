@@ -193,7 +193,7 @@ create_or_reuse_venv
 install_core_deps
 install_pytorch
 install_jupyter_kernel
-make_activate_script
+# make_activate_script
 
 print_step "Done!"
 print_info "Next: source activate.sh && jupyter lab"
