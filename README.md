@@ -44,7 +44,7 @@ chmod +x utils.sh # (Utility script, also needs to be executable if directly run
 # setup.bat # Ensure setup.bat is updated for the new two-step process
 
 # 4. Activate the environment
-./activate.sh
+ssource ./venv-3.12.5/bin/activate
 # On Windows:
 # activate.bat
 
