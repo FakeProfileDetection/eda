@@ -27,7 +27,9 @@ For team members, follow these steps:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-team/your-repo.git](https://github.com/your-team/your-repo.git)](https://github.com/FakeProfileDetection/eda.git
+git clone https://github.com/FakeProfileDetection/eda.git
+# If you have ssh setup, use this
+# git clone git@github.com:FakeProfileDetection/eda.git
 cd  eda
 
 # 2. Make the setup and data download scripts executable (Linux/Mac only)
