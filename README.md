@@ -1,7 +1,7 @@
 # eda
 EDA and analysis on our dataset
 
-# Foucs
+# Focus
 Analyzing and processing the dataset.
 
 # Datasets on shared Google Drive
@@ -48,6 +48,10 @@ chmod +x utils.sh # (Utility script, also needs to be executable if directly run
 
 # 4. Activate the environment
 source activate.sh
+
+# If that doesn't work try this
+# source ./venv-3.12.5/bin/activate
+
 # On Windows:
 # activate.bat
 
@@ -58,5 +62,34 @@ source activate.sh
 # ./download_data.sh --headless
 # On Windows (if a download_data.bat is provided):
 # download_data.bat
+
+# Process data using gemini_process_raw_data.py
+# This is being developed, but you can use it to test uploading and downloading to and from the cloud storage
+python gemini_process_raw_data.py
+
+
+# To upload and download processed data
+chmod +x upload_processed_data.sh download_processed_data.sh
+
+# Create a tar.gz and upload it (then remove the archive locally)
+./upload_processed_data.sh processed_data-<timestamp>-<hostname>
+
+# If you already have an archive, skip packing:
+./upload_processed_data.sh --no-archive processed_data-20250521T143200-myhost.tar.gz
+
+# Default (latest):
+./download_processed_data.sh
+
+# Fetch *all* snapshots:
+./download_processed_data.sh --all
+
+# Fetch only those from a given host:
+./download_processed_data.sh --hostname myhost
+
+# Pick interactively from the list:
+./download_processed_data.sh --interactive
+
+
+
 
 

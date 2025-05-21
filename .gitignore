@@ -6,6 +6,7 @@ secrets.json
 # archive from debugging and data
 /archive
 /data_dump
+/processed_data*
 
 # Lori's scp dump folder
 /from_claude 
