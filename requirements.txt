@@ -4,6 +4,7 @@ pandas
 numpy
 scikit-learn
 matplotlib
+plotly
 seaborn
 
 # Jupyter and development tools
