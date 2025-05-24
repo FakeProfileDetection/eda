@@ -127,5 +127,3 @@ if __name__ == "__main__":
     
     # Run the demonstration
     demo_df = demonstrate_extraction()
-
-
