@@ -1,4 +1,4 @@
-import pandas as pd
+import polars as pl
 import numpy as np
 from pathlib import Path
 import json
@@ -11,43 +11,70 @@ class TypeNetMLFeatureExtractor:
     """
     Feature extraction system for TypeNet ML experiments
     Handles multiple experiment types and feature extraction strategies
+    Polars version for improved performance
     """
     
     def __init__(self, data_path: str = 'typenet_features_extracted.csv'):
         """Initialize with extracted TypeNet features"""
         print(f"Loading data from {data_path}...")
-        self.df = pd.read_csv(data_path)
+        self.df = pl.read_csv(data_path)
         
         # Filter only valid data for ML
-        self.df = self.df[self.df['valid']].copy()
+        self.df = self.df.filter(pl.col('valid'))
         
         # Convert to milliseconds
         for col in ['HL', 'IL', 'PL', 'RL']:
-            self.df[f'{col}_ms'] = self.df[col] / 1_000_000
+            self.df = self.df.with_columns(
+                (pl.col(col) / 1_000_000).alias(f'{col}_ms')
+            )
         
         self.platform_names = {1: 'facebook', 2: 'instagram', 3: 'twitter'}
         
         print(f"Loaded {len(self.df):,} valid keystroke pairs")
-        print(f"Users: {self.df['user_id'].nunique()}")
-        print(f"Platforms: {sorted(self.df['platform_id'].unique())}")
-        print(f"Sessions per platform: {self.df.groupby('platform_id')['session_id'].nunique().to_dict()}")
+        print(f"Users: {self.df['user_id'].n_unique()}")
+        print(f"Platforms: {sorted(self.df['platform_id'].unique().to_list())}")
+        
+        # Get sessions per platform using Polars
+        sessions_per_platform = (
+            self.df.group_by('platform_id')
+            .agg(pl.col('session_id').n_unique())
+            .sort('platform_id')
+        )
+        print(f"Sessions per platform: {dict(zip(sessions_per_platform['platform_id'].to_list(), sessions_per_platform['session_id'].to_list()))}")
         
     def get_top_digrams(self, n: int = 10) -> List[str]:
         """Get top N most frequent digrams across entire dataset"""
-        self.df['digram'] = self.df['key1'] + self.df['key2']
-        digram_counts = self.df['digram'].value_counts()
-        top_digrams = digram_counts.head(n).index.tolist()
+        # Create digram column
+        self.df = self.df.with_columns(
+            (pl.col('key1') + pl.col('key2')).alias('digram')
+        )
+        
+        # Get top digrams
+        digram_counts = (
+            self.df.group_by('digram')
+            .agg(pl.count().alias('count'))
+            .sort('count', descending=True)
+            .head(n)
+        )
+        
+        top_digrams = digram_counts['digram'].to_list()
         print(f"\nTop {n} digrams: {top_digrams}")
         return top_digrams
     
     def get_all_unigrams(self) -> List[str]:
         """Get all unique unigrams (individual keys) in dataset"""
-        all_keys = pd.concat([self.df['key1'], self.df['key2']]).unique()
-        unigrams = sorted(list(all_keys))
+        # Combine key1 and key2 columns
+        all_keys = pl.concat([
+            self.df.select('key1'),
+            self.df.select(pl.col('key2').alias('key1'))
+        ])
+        
+        # Get unique keys and sort
+        unigrams = sorted(all_keys['key1'].unique().to_list())
         print(f"\nTotal unique unigrams: {len(unigrams)}")
         return unigrams
     
-    def extract_features(self, data: pd.DataFrame, unigrams: List[str], 
+    def extract_features(self, data: pl.DataFrame, unigrams: List[str], 
                         digrams: List[str]) -> Dict[str, float]:
         """
         Extract statistical features for given data subset
@@ -58,14 +85,15 @@ class TypeNetMLFeatureExtractor:
         # Extract unigram (HL) features
         for unigram in unigrams:
             # Filter data for this unigram
-            unigram_data = data[data['key1'] == unigram]['HL_ms']
+            unigram_data = data.filter(pl.col('key1') == unigram).select('HL_ms')
             
             if len(unigram_data) > 0:
-                features[f'HL_{unigram}_median'] = unigram_data.median()
-                features[f'HL_{unigram}_mean'] = unigram_data.mean()
-                features[f'HL_{unigram}_std'] = unigram_data.std() if len(unigram_data) > 1 else 0
-                features[f'HL_{unigram}_q1'] = unigram_data.quantile(0.25)
-                features[f'HL_{unigram}_q3'] = unigram_data.quantile(0.75)
+                hl_values = unigram_data['HL_ms']
+                features[f'HL_{unigram}_median'] = float(hl_values.median())
+                features[f'HL_{unigram}_mean'] = float(hl_values.mean())
+                features[f'HL_{unigram}_std'] = float(hl_values.std()) if len(unigram_data) > 1 else 0.0
+                features[f'HL_{unigram}_q1'] = float(hl_values.quantile(0.25))
+                features[f'HL_{unigram}_q3'] = float(hl_values.quantile(0.75))
             else:
                 # Missing data - will be handled by imputation strategy
                 for stat in ['median', 'mean', 'std', 'q1', 'q3']:
@@ -74,14 +102,15 @@ class TypeNetMLFeatureExtractor:
         # Extract digram (IL) features
         for digram in digrams:
             # Filter data for this digram
-            digram_data = data[data['digram'] == digram]['IL_ms']
+            digram_data = data.filter(pl.col('digram') == digram).select('IL_ms')
             
             if len(digram_data) > 0:
-                features[f'IL_{digram}_median'] = digram_data.median()
-                features[f'IL_{digram}_mean'] = digram_data.mean()
-                features[f'IL_{digram}_std'] = digram_data.std() if len(digram_data) > 1 else 0
-                features[f'IL_{digram}_q1'] = digram_data.quantile(0.25)
-                features[f'IL_{digram}_q3'] = digram_data.quantile(0.75)
+                il_values = digram_data['IL_ms']
+                features[f'IL_{digram}_median'] = float(il_values.median())
+                features[f'IL_{digram}_mean'] = float(il_values.mean())
+                features[f'IL_{digram}_std'] = float(il_values.std()) if len(digram_data) > 1 else 0.0
+                features[f'IL_{digram}_q1'] = float(il_values.quantile(0.25))
+                features[f'IL_{digram}_q3'] = float(il_values.quantile(0.75))
             else:
                 # Missing data - will be handled by imputation strategy
                 for stat in ['median', 'mean', 'std', 'q1', 'q3']:
@@ -90,7 +119,7 @@ class TypeNetMLFeatureExtractor:
         return features
     
     def create_dataset_1(self, unigrams: List[str], digrams: List[str], 
-                        imputation: str = 'global') -> pd.DataFrame:
+                        imputation: str = 'global') -> pl.DataFrame:
         """
         Dataset 1: One set of features per user/platform
         Aggregates all sessions and videos for each user-platform combination
@@ -100,28 +129,39 @@ class TypeNetMLFeatureExtractor:
         feature_records = []
         
         # Group by user and platform
-        for (user_id, platform_id), group_data in self.df.groupby(['user_id', 'platform_id']):
+        grouped = self.df.group_by(['user_id', 'platform_id']).agg(pl.all())
+        
+        for row in grouped.iter_rows(named=True):
+            # Reconstruct DataFrame for this group
+            group_data = pl.DataFrame({
+                'key1': row['key1'],
+                'key2': row['key2'],
+                'HL_ms': row['HL_ms'],
+                'IL_ms': row['IL_ms'],
+                'digram': row['digram']
+            })
+            
             features = self.extract_features(group_data, unigrams, digrams)
-            features['user_id'] = user_id
-            features['platform_id'] = platform_id
+            features['user_id'] = row['user_id']
+            features['platform_id'] = row['platform_id']
             feature_records.append(features)
         
         # Create DataFrame
-        dataset = pd.DataFrame(feature_records)
+        dataset = pl.DataFrame(feature_records)
         
         # Apply imputation strategy
         dataset = self.apply_imputation(dataset, imputation, level='platform')
         
         # Reorder columns
         id_cols = ['user_id', 'platform_id']
-        feature_cols = [col for col in dataset.columns if col not in id_cols]
-        dataset = dataset[id_cols + sorted(feature_cols)]
+        feature_cols = sorted([col for col in dataset.columns if col not in id_cols])
+        dataset = dataset.select(id_cols + feature_cols)
         
         print(f"Dataset 1 shape: {dataset.shape}")
         return dataset
     
     def create_dataset_2(self, unigrams: List[str], digrams: List[str], 
-                        imputation: str = 'global') -> pd.DataFrame:
+                        imputation: str = 'global') -> pl.DataFrame:
         """
         Dataset 2: Two sets of features per user/platform/session
         Aggregates all videos for each user-platform-session combination
@@ -131,29 +171,40 @@ class TypeNetMLFeatureExtractor:
         feature_records = []
         
         # Group by user, platform, and session
-        for (user_id, platform_id, session_id), group_data in self.df.groupby(['user_id', 'platform_id', 'session_id']):
+        grouped = self.df.group_by(['user_id', 'platform_id', 'session_id']).agg(pl.all())
+        
+        for row in grouped.iter_rows(named=True):
+            # Reconstruct DataFrame for this group
+            group_data = pl.DataFrame({
+                'key1': row['key1'],
+                'key2': row['key2'],
+                'HL_ms': row['HL_ms'],
+                'IL_ms': row['IL_ms'],
+                'digram': row['digram']
+            })
+            
             features = self.extract_features(group_data, unigrams, digrams)
-            features['user_id'] = user_id
-            features['platform_id'] = platform_id
-            features['session_id'] = session_id
+            features['user_id'] = row['user_id']
+            features['platform_id'] = row['platform_id']
+            features['session_id'] = row['session_id']
             feature_records.append(features)
         
         # Create DataFrame
-        dataset = pd.DataFrame(feature_records)
+        dataset = pl.DataFrame(feature_records)
         
         # Apply imputation strategy
         dataset = self.apply_imputation(dataset, imputation, level='session')
         
         # Reorder columns
         id_cols = ['user_id', 'platform_id', 'session_id']
-        feature_cols = [col for col in dataset.columns if col not in id_cols]
-        dataset = dataset[id_cols + sorted(feature_cols)]
+        feature_cols = sorted([col for col in dataset.columns if col not in id_cols])
+        dataset = dataset.select(id_cols + feature_cols)
         
         print(f"Dataset 2 shape: {dataset.shape}")
         return dataset
     
     def create_dataset_3(self, unigrams: List[str], digrams: List[str], 
-                        imputation: str = 'global') -> pd.DataFrame:
+                        imputation: str = 'global') -> pl.DataFrame:
         """
         Dataset 3: Six sets of features per user/platform/session/video
         Most granular level - no aggregation
@@ -163,29 +214,40 @@ class TypeNetMLFeatureExtractor:
         feature_records = []
         
         # Group by user, platform, session, and video
-        for (user_id, platform_id, session_id, video_id), group_data in self.df.groupby(['user_id', 'platform_id', 'session_id', 'video_id']):
+        grouped = self.df.group_by(['user_id', 'platform_id', 'session_id', 'video_id']).agg(pl.all())
+        
+        for row in grouped.iter_rows(named=True):
+            # Reconstruct DataFrame for this group
+            group_data = pl.DataFrame({
+                'key1': row['key1'],
+                'key2': row['key2'],
+                'HL_ms': row['HL_ms'],
+                'IL_ms': row['IL_ms'],
+                'digram': row['digram']
+            })
+            
             features = self.extract_features(group_data, unigrams, digrams)
-            features['user_id'] = user_id
-            features['platform_id'] = platform_id
-            features['session_id'] = session_id
-            features['video_id'] = video_id
+            features['user_id'] = row['user_id']
+            features['platform_id'] = row['platform_id']
+            features['session_id'] = row['session_id']
+            features['video_id'] = row['video_id']
             feature_records.append(features)
         
         # Create DataFrame
-        dataset = pd.DataFrame(feature_records)
+        dataset = pl.DataFrame(feature_records)
         
         # Apply imputation strategy
         dataset = self.apply_imputation(dataset, imputation, level='video')
         
         # Reorder columns
         id_cols = ['user_id', 'platform_id', 'session_id', 'video_id']
-        feature_cols = [col for col in dataset.columns if col not in id_cols]
-        dataset = dataset[id_cols + sorted(feature_cols)]
+        feature_cols = sorted([col for col in dataset.columns if col not in id_cols])
+        dataset = dataset.select(id_cols + feature_cols)
         
         print(f"Dataset 3 shape: {dataset.shape}")
         return dataset
     
-    def apply_imputation(self, dataset: pd.DataFrame, strategy: str, level: str) -> pd.DataFrame:
+    def apply_imputation(self, dataset: pl.DataFrame, strategy: str, level: str) -> pl.DataFrame:
         """
         Apply imputation strategy for missing values
         strategy: 'global' (average over all users) or 'user' (average over user's data)
@@ -197,49 +259,71 @@ class TypeNetMLFeatureExtractor:
             # Replace NaN with global mean
             for col in feature_cols:
                 global_mean = dataset[col].mean()
-                dataset[col].fillna(global_mean, inplace=True)
+                dataset = dataset.with_columns(
+                    pl.col(col).fill_null(global_mean)
+                )
                 
         elif strategy == 'user':
             # Replace NaN with user-specific mean
             for col in feature_cols:
                 # First try user-level mean
-                user_means = dataset.groupby('user_id')[col].transform('mean')
-                dataset[col].fillna(user_means, inplace=True)
+                user_means = dataset.group_by('user_id').agg(
+                    pl.col(col).mean().alias(f'{col}_user_mean')
+                )
+                
+                # Join back to get user means
+                dataset = dataset.join(user_means, on='user_id', how='left')
+                
+                # Fill nulls with user mean
+                dataset = dataset.with_columns(
+                    pl.when(pl.col(col).is_null())
+                    .then(pl.col(f'{col}_user_mean'))
+                    .otherwise(pl.col(col))
+                    .alias(col)
+                )
+                
+                # Drop the temporary user mean column
+                dataset = dataset.drop(f'{col}_user_mean')
                 
                 # If still NaN (user has no data for this feature), use global mean
                 global_mean = dataset[col].mean()
-                dataset[col].fillna(global_mean, inplace=True)
+                dataset = dataset.with_columns(
+                    pl.col(col).fill_null(global_mean)
+                )
         
         # Final check - if still any NaN (e.g., all values were NaN), fill with 0
-        dataset[feature_cols] = dataset[feature_cols].fillna(0)
+        for col in feature_cols:
+            dataset = dataset.with_columns(
+                pl.col(col).fill_null(0.0)
+            )
         
         return dataset
     
-    def create_experiment_splits(self, dataset: pd.DataFrame, experiment_type: str, 
-                               experiment_config: Dict) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def create_experiment_splits(self, dataset: pl.DataFrame, experiment_type: str, 
+                               experiment_config: Dict) -> Tuple[pl.DataFrame, pl.DataFrame]:
         """
         Create train/test splits based on experiment configuration
         """
         if experiment_type == 'session':
             # Session 1 vs Session 2
-            train_data = dataset[dataset['session_id'] == 1].copy()
-            test_data = dataset[dataset['session_id'] == 2].copy()
+            train_data = dataset.filter(pl.col('session_id') == 1)
+            test_data = dataset.filter(pl.col('session_id') == 2)
             
         elif experiment_type == 'platform_3c2':
             # 3-choose-2 platform experiments
             train_platforms = experiment_config['train_platforms']
             test_platform = experiment_config['test_platform']
             
-            train_data = dataset[dataset['platform_id'].isin(train_platforms)].copy()
-            test_data = dataset[dataset['platform_id'] == test_platform].copy()
+            train_data = dataset.filter(pl.col('platform_id').is_in(train_platforms))
+            test_data = dataset.filter(pl.col('platform_id') == test_platform)
             
         elif experiment_type == 'platform_3c1':
             # 3-choose-1 platform experiments
             train_platform = experiment_config['train_platform']
             test_platform = experiment_config['test_platform']
             
-            train_data = dataset[dataset['platform_id'] == train_platform].copy()
-            test_data = dataset[dataset['platform_id'] == test_platform].copy()
+            train_data = dataset.filter(pl.col('platform_id') == train_platform)
+            test_data = dataset.filter(pl.col('platform_id') == test_platform)
         
         else:
             raise ValueError(f"Unknown experiment type: {experiment_type}")
@@ -333,7 +417,7 @@ class TypeNetMLFeatureExtractor:
             
             # Save full datasets
             for dataset_name, dataset in datasets.items():
-                dataset.to_csv(imp_dir / f'{dataset_name}_full.csv', index=False)
+                dataset.write_csv(str(imp_dir / f'{dataset_name}_full.csv'))
             
             # Generate experiment splits
             for experiment in experiments:
@@ -358,8 +442,8 @@ class TypeNetMLFeatureExtractor:
                         )
                         
                         # Save train/test splits
-                        train_data.to_csv(exp_dir / f'{dataset_name}_train.csv', index=False)
-                        test_data.to_csv(exp_dir / f'{dataset_name}_test.csv', index=False)
+                        train_data.write_csv(str(exp_dir / f'{dataset_name}_train.csv'))
+                        test_data.write_csv(str(exp_dir / f'{dataset_name}_test.csv'))
                         
                         print(f"  {dataset_name}: Train shape {train_data.shape}, Test shape {test_data.shape}")
                         
@@ -452,19 +536,23 @@ Each feature vector contains:
 
 ## Usage Example
 ```python
-import pandas as pd
+import polars as pl
 
 # Load a specific experiment
-train_data = pd.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_train.csv')
-test_data = pd.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_test.csv')
+train_data = pl.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_train.csv')
+test_data = pl.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_test.csv')
 
 # Features start from column index 2 (after user_id and platform_id)
-X_train = train_data.iloc[:, 2:].values
-y_train = train_data['user_id'].values
+X_train = train_data.select(pl.all().exclude(['user_id', 'platform_id'])).to_numpy()
+y_train = train_data['user_id'].to_numpy()
 
-X_test = test_data.iloc[:, 2:].values
-y_test = test_data['user_id'].values
+X_test = test_data.select(pl.all().exclude(['user_id', 'platform_id'])).to_numpy()
+y_test = test_data['user_id'].to_numpy()
 ```
+
+## Performance Note
+This version uses Polars instead of Pandas for significantly faster processing, 
+especially beneficial for large datasets with many users and features.
 """
         
         with open(output_path / 'README.md', 'w') as f:
@@ -476,7 +564,6 @@ if __name__ == "__main__":
     # Initialize feature extractor
     typenet_features_path = 'processed_data-2025-05-24_144726-Loris-MBP.cable.rcn.com/typenet_features.csv'
     extractor = TypeNetMLFeatureExtractor(data_path=typenet_features_path)    
-    
     # Generate all experiments
     extractor.generate_all_experiments('ml_experiments')
     
