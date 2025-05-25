@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 from typing import Dict, List, Tuple, Optional
 import h5py
+from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -111,7 +112,8 @@ class TypeNetImageFeatureExtractor:
         return grid
     
     def create_multi_channel_image(self, data: pl.DataFrame, keys: List[str], 
-                                 fill_value: Optional[float] = None) -> np.ndarray:
+                                 fill_value: Optional[float] = None,
+                                 show_progress: bool = False) -> np.ndarray:
         """
         Create multi-channel image for given data
         
@@ -127,7 +129,10 @@ class TypeNetImageFeatureExtractor:
         # Initialize multi-channel image
         image = np.zeros((5, n_keys, 2 * n_keys), dtype=np.float32)
         
-        for stat_idx, statistic in enumerate(statistics):
+        # Use progress bar if requested
+        stat_iter = tqdm(enumerate(statistics), total=5, desc="Creating channels", leave=False) if show_progress else enumerate(statistics)
+        
+        for stat_idx, statistic in stat_iter:
             # Create HL grid (n_keys x n_keys)
             hl_grid = self.create_feature_grid(data, keys, 'HL', statistic)
             
@@ -219,10 +224,15 @@ class TypeNetImageFeatureExtractor:
             total_images = len(unique_combos)
             print(f"Total images to generate: {total_images}")
             
+            # Count images per user for progress estimation
+            images_per_user = unique_combos.group_by('user_id').count().sort('user_id')
+            print(f"Average images per user: {images_per_user['count'].mean():.1f}")
+            
             # Process each user
             user_ids = unique_combos['user_id'].unique().sort().to_list()
             
-            for user_idx, user_id in enumerate(user_ids):
+            # Progress bar for users
+            for user_id in tqdm(user_ids, desc=f"Processing users ({fill_strategy})", unit="user"):
                 # Create user directory
                 user_dir = strategy_dir / f'user_{user_id}'
                 user_dir.mkdir(exist_ok=True)
@@ -254,7 +264,7 @@ class TypeNetImageFeatureExtractor:
                     # Create image with appropriate fill strategy
                     if fill_strategy == 'mean_fill':
                         # Create initial image with NaN
-                        image = self.create_multi_channel_image(subset_data, keys, fill_value=None)
+                        image = self.create_multi_channel_image(subset_data, keys, fill_value=None, show_progress=False)
                         
                         # Fill NaN values with user-specific means per channel
                         for channel_idx, statistic in enumerate(['median', 'mean', 'std', 'q1', 'q3']):
@@ -269,7 +279,7 @@ class TypeNetImageFeatureExtractor:
                             image[channel_idx, :, len(keys):][mask] = il_mean
                     else:
                         # Zero fill
-                        image = self.create_multi_channel_image(subset_data, keys, fill_value=0.0)
+                        image = self.create_multi_channel_image(subset_data, keys, fill_value=0.0, show_progress=False)
                     
                     # Save as HDF5 for efficient storage and loading
                     filename = f'{platform_id}_{video_id}_{session_id}_{user_id}.h5'
@@ -284,9 +294,6 @@ class TypeNetImageFeatureExtractor:
                         hf.attrs['video_id'] = video_id
                         hf.attrs['shape'] = image.shape
                         hf.attrs['fill_strategy'] = fill_strategy
-                
-                if (user_idx + 1) % 10 == 0:
-                    print(f"  Processed {user_idx + 1}/{len(user_ids)} users")
             
             print(f"✓ Completed {fill_strategy} dataset")
             
