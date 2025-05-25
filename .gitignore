@@ -2,6 +2,7 @@
 credentials.json
 # secrets:
 secrets.json
+**/local_python
 
 # archive from debugging and data
 /archive
