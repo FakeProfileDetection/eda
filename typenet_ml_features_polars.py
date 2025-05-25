@@ -260,7 +260,7 @@ class TypeNetMLFeatureExtractor:
             for col in feature_cols:
                 global_mean = dataset[col].mean()
                 dataset = dataset.with_columns(
-                    pl.col(col).fill_null(global_mean)
+                    pl.col(col).fill_null(global_mean).fill_nan(global_mean)
                 )
                 
         elif strategy == 'user':
@@ -274,9 +274,9 @@ class TypeNetMLFeatureExtractor:
                 # Join back to get user means
                 dataset = dataset.join(user_means, on='user_id', how='left')
                 
-                # Fill nulls with user mean
+                # Fill nulls and nans with user mean
                 dataset = dataset.with_columns(
-                    pl.when(pl.col(col).is_null())
+                    pl.when(pl.col(col).is_null() | pl.col(col).is_nan())
                     .then(pl.col(f'{col}_user_mean'))
                     .otherwise(pl.col(col))
                     .alias(col)
@@ -288,13 +288,13 @@ class TypeNetMLFeatureExtractor:
                 # If still NaN (user has no data for this feature), use global mean
                 global_mean = dataset[col].mean()
                 dataset = dataset.with_columns(
-                    pl.col(col).fill_null(global_mean)
+                    pl.col(col).fill_null(global_mean).fill_nan(global_mean)
                 )
         
         # Final check - if still any NaN (e.g., all values were NaN), fill with 0
         for col in feature_cols:
             dataset = dataset.with_columns(
-                pl.col(col).fill_null(0.0)
+                pl.col(col).fill_null(0.0).fill_nan(0.0)
             )
         
         return dataset
