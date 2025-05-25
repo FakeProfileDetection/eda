@@ -2,10 +2,100 @@ import pandas as pd
 import numpy as np
 import os
 from pathlib import Path
-from collections import deque
+from collections import deque, defaultdict
 from typing import List, Tuple, Dict, Optional
 import socket
 from datetime import datetime
+
+class HBOS:
+    def __init__(self, n_bins=10, contamination=0.1, alpha=0.1, tol=0.5):
+        """
+        HBOS with smoothing (alpha) and edge-tolerance (tol).
+        Parameters:
+        - n_bins: Base number of bins per feature (can also be 'auto' rules).
+        - contamination: Proportion of expected outliers.
+        - alpha: Small constant added to every bin density.
+        - tol: Fraction of one bin-width to tolerate just-outside values.
+        """
+        self.n_bins = n_bins
+        self.contamination = contamination
+        self.alpha = alpha
+        self.tol = tol
+        self.histograms = []  # List of 1D arrays: per-feature bin densities
+        self.bin_edges = []   # List of 1D arrays: per-feature edges
+        self.feature_names = []  # Keys order
+        
+    def fit(self, data: defaultdict):
+        """Build (smoothed) histograms for each feature."""
+        self.feature_names = list(data.keys())
+        X = np.column_stack([data[f] for f in self.feature_names])
+        self.histograms.clear()
+        self.bin_edges.clear()
+        
+        for col in X.T:
+            # 1) build raw histogram
+            hist, edges = np.histogram(col, bins=self.n_bins, density=True)
+            # 2) smooth: add alpha everywhere
+            hist = hist + self.alpha
+            self.histograms.append(hist)
+            self.bin_edges.append(edges)
+            
+    def _compute_score(self, x: np.ndarray) -> float:
+        """
+        Negative-log-sum of per-feature densities with alpha & tol handling.
+        Higher score = more anomalous.
+        """
+        score = 0.0
+        for i, xi in enumerate(x):
+            edges = self.bin_edges[i]
+            hist = self.histograms[i]
+            n_bins = hist.shape[0]
+            
+            # compute first/last bin widths
+            width_low = edges[1] - edges[0]
+            width_high = edges[-1] - edges[-2]
+            
+            # 1) too far below range?
+            if xi < edges[0]:
+                if edges[0] - xi <= self.tol * width_low:
+                    # snap into first bin
+                    density = hist[0]
+                else:
+                    # true out-of-range → worst density
+                    density = self.alpha
+                score += -np.log(density)
+                continue
+                
+            # 2) too far above range?
+            if xi > edges[-1]:
+                if xi - edges[-1] <= self.tol * width_high:
+                    # snap into last bin
+                    density = hist[-1]
+                else:
+                    density = self.alpha
+                score += -np.log(density)
+                continue
+                
+            # 3) within [min, max] → find bin index
+            bin_idx = np.searchsorted(edges, xi, side="right") - 1
+            bin_idx = np.clip(bin_idx, 0, n_bins - 1)
+            density = hist[bin_idx]
+            score += -np.log(density)
+            
+        return score
+        
+    def decision_function(self, data: defaultdict) -> np.ndarray:
+        """Return log-space HBOS scores for all points."""
+        X = np.column_stack([data[f] for f in self.feature_names])
+        return np.array([self._compute_score(row) for row in X])
+        
+    def predict_outliers(self, data: defaultdict) -> np.ndarray:
+        """
+        Return boolean array where True indicates an outlier.
+        """
+        scores = self.decision_function(data)
+        threshold = np.percentile(scores, 100 * (1 - self.contamination))
+        return scores > threshold
 
 class TypeNetFeatureExtractor:
     """
@@ -230,6 +320,76 @@ class TypeNetFeatureExtractor:
         
         return pd.DataFrame(features_list)
     
+    def detect_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply HBOS outlier detection to the feature data.
+        Adds 'outlier' column to the dataframe.
+        """
+        # Only process valid records for outlier detection
+        valid_df = df[df['valid']].copy()
+        
+        if len(valid_df) < 10:  # Too few records for meaningful outlier detection
+            df['outlier'] = False
+            return df
+        
+        # Prepare data for HBOS
+        feature_data = defaultdict(list)
+        timing_features = ['HL', 'IL', 'PL', 'RL']
+        
+        # Only use non-null timing features
+        for feature in timing_features:
+            valid_values = valid_df[feature].dropna()
+            if len(valid_values) > 0:
+                feature_data[feature] = valid_values.tolist()
+        
+        if not feature_data:  # No valid timing data
+            df['outlier'] = False
+            return df
+        
+        # Ensure all features have the same length by using indices
+        valid_indices = valid_df.index
+        aligned_data = defaultdict(list)
+        
+        for idx in valid_indices:
+            has_all_features = True
+            for feature in timing_features:
+                if pd.notna(valid_df.loc[idx, feature]):
+                    continue
+                else:
+                    has_all_features = False
+                    break
+            
+            if has_all_features:
+                for feature in timing_features:
+                    aligned_data[feature].append(valid_df.loc[idx, feature])
+        
+        if not aligned_data or len(aligned_data[timing_features[0]]) < 10:
+            df['outlier'] = False
+            return df
+        
+        # Apply HBOS
+        hbos = HBOS(n_bins=10, contamination=0.1, alpha=0.1, tol=0.5)
+        hbos.fit(aligned_data)
+        outliers = hbos.predict_outliers(aligned_data)
+        
+        # Initialize outlier column
+        df['outlier'] = False
+        
+        # Map outliers back to original indices
+        outlier_idx = 0
+        for idx in valid_indices:
+            has_all_features = True
+            for feature in timing_features:
+                if pd.isna(valid_df.loc[idx, feature]):
+                    has_all_features = False
+                    break
+            
+            if has_all_features:
+                df.loc[idx, 'outlier'] = outliers[outlier_idx]
+                outlier_idx += 1
+        
+        return df
+    
     def process_user_directory(self, user_dir: str) -> pd.DataFrame:
         """
         Process all files for a single user.
@@ -259,6 +419,8 @@ class TypeNetFeatureExtractor:
                 print(f"\nProcessing user directory: {user_dir}")
                 user_features = self.process_user_directory(str(user_dir))
                 if not user_features.empty:
+                    # Apply outlier detection per user
+                    user_features = self.detect_outliers(user_features)
                     all_user_features.append(user_features)
         
         # Combine all features
@@ -269,7 +431,7 @@ class TypeNetFeatureExtractor:
             column_order = [
                 'user_id', 'platform_id', 'video_id', 'session_id', 'sequence_id',
                 'key1', 'key2', 'key1_press', 'key1_release', 'key2_press', 'key2_release',
-                'HL', 'IL', 'PL', 'RL', 'key1_timestamp', 'valid', 'error_description'
+                'HL', 'IL', 'PL', 'RL', 'key1_timestamp', 'valid', 'error_description', 'outlier'
             ]
             
             final_df = final_df[column_order]
@@ -280,12 +442,19 @@ class TypeNetFeatureExtractor:
             print(f"Total records: {len(final_df)}")
             print(f"Valid records: {final_df['valid'].sum()}")
             print(f"Invalid records: {(~final_df['valid']).sum()}")
+            print(f"Outliers detected: {final_df['outlier'].sum()}")
             
             # Print error summary
             print("\nError summary:")
             error_counts = final_df[~final_df['valid']]['error_description'].value_counts()
             for error, count in error_counts.items():
                 print(f"  {error}: {count}")
+            
+            # Print outlier summary
+            print("\nOutlier summary:")
+            outlier_valid = final_df[final_df['valid'] & final_df['outlier']]
+            print(f"  Outliers in valid data: {len(outlier_valid)}")
+            print(f"  Outlier rate in valid data: {len(outlier_valid) / final_df['valid'].sum() * 100:.2f}%")
             
             return final_df
         else:
@@ -298,23 +467,7 @@ if __name__ == "__main__":
     # Create extractor instance
     extractor = TypeNetFeatureExtractor()
     
-    # Example: Process a single file
-    # df = extractor.extract_features_from_file('path/to/1_1_1_1001.csv')
-    
-    # Example: Process entire dataset
-    # df = extractor.process_dataset('path/to/dataset/root')
-    
-    # Example: Process with custom output filename
-    # df = extractor.process_dataset('path/to/dataset/root', 'my_features.csv')
-    
-    # print("TypeNet Feature Extractor ready to use!")
-    # print("\nUsage examples:")
-    # print("1. Process single file:")
-    # print("   df = extractor.extract_features_from_file('path/to/1_1_1_1001.csv')")
-    # print("\n2. Process entire dataset:")
-    # print("   df = extractor.process_dataset('path/to/dataset/root')")
-    
-    print("=== TypeNet Feature Extraction  ===\n")
+    print("=== TypeNet Feature Extraction with Outlier Detection ===\n")
     
     # Process the demo dataset
     print("Processing demo dataset...")
@@ -322,8 +475,8 @@ if __name__ == "__main__":
     
     # Make saved processed data fileanames consistent for automated download and extraction.
     hostname = socket.gethostname()
-    now = datetime.now().strftime("%Y-%m-%d_%H%M%S") # Removed Min and Sec suffix for brevity
-    base_dir = os.path.dirname(os.path.abspath(__file__)) # Or use os.getcwd() if script is run from its location
+    now = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     processed_data_save_dir = os.path.join(base_dir, f"processed_data-{now}-{hostname}")
     os.makedirs(processed_data_save_dir, exist_ok=True)
     save_data_path = os.path.join(processed_data_save_dir,'typenet_features.csv')
@@ -331,12 +484,13 @@ if __name__ == "__main__":
     features_df = extractor.process_dataset(raw_data_dir, save_data_path)
     
     print("\n=== Extracted Features ===")
-    print(features_df.to_string(index=False))
+    print(features_df.head(20).to_string(index=False))
     
     print("\n=== Feature Statistics ===")
     print(f"Total keypair features: {len(features_df)}")
     print(f"Valid features: {features_df['valid'].sum()}")
     print(f"Invalid features: {(~features_df['valid']).sum()}")
+    print(f"Outliers: {features_df['outlier'].sum()}")
     
     print("\n=== Timing Feature Ranges (valid records only) ===")
     valid_df = features_df[features_df['valid']]
@@ -353,15 +507,15 @@ if __name__ == "__main__":
         print("Errors found:")
         for error_type, count in error_df['error_description'].value_counts().items():
             print(f"  - {error_type}: {count} occurrences")
+    
+    print("\n=== Outlier Analysis ===")
+    outlier_df = features_df[features_df['outlier']]
+    if not outlier_df.empty:
+        print("Outliers by validity:")
+        print(f"  - Valid outliers: {outlier_df['valid'].sum()}")
+        print(f"  - Invalid outliers: {(~outlier_df['valid']).sum()}")
         
-        print("\nExample error records:")
-        print(error_df[['key1', 'key2', 'error_description']].head(5).to_string(index=False))
-    else:
-        print("No errors found in the dataset!")
-    
-    # Cleanup
-    # import shutil
-    # shutil.rmtree('demo_data')
-    # os.remove('demo_features.csv')
-    
-    print(features_df)
+        print("\nOutliers by platform:")
+        for platform in sorted(features_df['platform_id'].unique()):
+            platform_outliers = outlier_df[outlier_df['platform_id'] == platform]
+            print(f"  - Platform {platform}: {len(platform_outliers)} outliers")
