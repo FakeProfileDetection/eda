@@ -6,7 +6,12 @@ from typing import Dict, List, Tuple, Optional
 from itertools import combinations
 import warnings
 import datetime
+from datetime import datetime
+
 warnings.filterwarnings('ignore')
+from typenet_feature_tools import (
+    filter_IL_top_k
+    )
 
 class TypeNetMLFeatureExtractor:
     """
@@ -423,11 +428,17 @@ class TypeNetMLFeatureExtractor:
             }
             
             # Save full datasets
-            for dataset_name, dataset in datasets.items():
+            for (dataset_name, dataset), levels in zip(datasets.items(), ['platform_id', 'session_id', 'video_id']):
+                dataset_il_filtered = filter_IL_top_k(
+                    dataset, level=levels, k=10
+                )
                 if self.keep_outliers:
                     dataset.write_csv(str(imp_dir / f'{dataset_name}_full_with_outliers.csv'), include_header=True)
+                    dataset_il_filtered.write_csv(str(imp_dir / f'{dataset_name}_full_with_outliers_IL_filtered.csv'), include_header=True)
+                    
                 else:
                     dataset.write_csv(str(imp_dir / f'{dataset_name}_full_without_outliers.csv'), include_header=True)
+                    dataset_il_filtered.write_csv(str(imp_dir / f'{dataset_name}_full_without_outliers_IL_filtered.csv'), include_header=True)
             
             # Generate experiment splits
             for experiment in experiments:
@@ -596,7 +607,7 @@ if __name__ == "__main__":
     extractor = TypeNetMLFeatureExtractor(data_path=args.dataset_path, keep_outliers=args.keep_outliers)
 
     # Generate all experiments
-    extractor.generate_all_experiments(output_dir=args.output_dir+datetime.now().strftime("_%Y%m%d_%H%M%S"))
+    extractor.generate_all_experiments(output_dir=args.output_dir+datetime.now().strftime("%Y-%m-%d_%H%M%S"))
 
     print("\n📊 Next steps:")
     print("1. Review ml_experiments/README.md for experiment details")
