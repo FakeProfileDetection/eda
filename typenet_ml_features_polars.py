@@ -5,6 +5,7 @@ import json
 from typing import Dict, List, Tuple, Optional
 from itertools import combinations
 import warnings
+import datetime
 warnings.filterwarnings('ignore')
 
 class TypeNetMLFeatureExtractor:
@@ -14,13 +15,19 @@ class TypeNetMLFeatureExtractor:
     Polars version for improved performance
     """
     
-    def __init__(self, data_path: str = 'typenet_features_extracted.csv'):
+    def __init__(self, data_path: str = 'typenet_features_extracted.csv', keep_outliers: bool = False):
+        self.keep_outliers = keep_outliers
         """Initialize with extracted TypeNet features"""
         print(f"Loading data from {data_path}...")
         self.df = pl.read_csv(data_path)
         
         # Filter only valid data for ML
         self.df = self.df.filter(pl.col('valid'))
+        if  self.keep_outliers:
+            print("Keeping outliers in the dataset")
+        else:
+            print("Removing outliers from the dataset")
+            self.df = self.df.filter(~pl.col('outlier'))
         
         # Convert to milliseconds
         for col in ['HL', 'IL', 'PL', 'RL']:
@@ -417,7 +424,10 @@ class TypeNetMLFeatureExtractor:
             
             # Save full datasets
             for dataset_name, dataset in datasets.items():
-                dataset.write_csv(str(imp_dir / f'{dataset_name}_full.csv'))
+                if self.keep_outliers:
+                    dataset.write_csv(str(imp_dir / f'{dataset_name}_full_with_outliers.csv'), include_header=True)
+                else:
+                    dataset.write_csv(str(imp_dir / f'{dataset_name}_full_without_outliers.csv'), include_header=True)
             
             # Generate experiment splits
             for experiment in experiments:
@@ -471,14 +481,6 @@ class TypeNetMLFeatureExtractor:
 │   ├── dataset_1_full.csv     # User-Platform level features
 │   ├── dataset_2_full.csv     # User-Platform-Session level features
 │   ├── dataset_3_full.csv     # User-Platform-Session-Video level features
-│   └── [experiment_name]/     # Each experiment directory
-│       ├── experiment_info.json
-│       ├── dataset_1_train.csv
-│       ├── dataset_1_test.csv
-│       ├── dataset_2_train.csv
-│       ├── dataset_2_test.csv
-│       ├── dataset_3_train.csv
-│       └── dataset_3_test.csv
 └── imputation_user/           # User-specific mean imputation
     └── ... (same structure)
 ```
@@ -558,15 +560,44 @@ especially beneficial for large datasets with many users and features.
         with open(output_path / 'README.md', 'w') as f:
             f.write(report)
 
+def parse_args():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-d",
+        "--dataset_path",
+        type=str,
+        default="processed_data-2025-05-24_144726-Loris-MBP.cable.rcn.com/typenet_features.csv",
+        help="Path to the TypeNet features CSV file",
+    )
+    parser.add_argument(
+        "-k",
+        "--keep_outliers",
+        action="store_true",
+        help="Keep outlier records in the dataset",
+    )
+    parser.add_argument(
+        "-o",
+        "--output_dir",
+        type=str,
+        default="ml_experiments",
+        help="Directory to save the generated ML experiments",
+    )
+    return parser.parse_args()
 
 # Main execution
 if __name__ == "__main__":
+    args = parse_args()
     # Initialize feature extractor
-    typenet_features_path = 'processed_data-2025-05-24_144726-Loris-MBP.cable.rcn.com/typenet_features.csv'
-    extractor = TypeNetMLFeatureExtractor(data_path=typenet_features_path)    
+    typenet_features_path = (
+        "processed_data-2025-05-24_144726-Loris-MBP.cable.rcn.com/typenet_features.csv"
+    )
+    extractor = TypeNetMLFeatureExtractor(data_path=args.dataset_path, keep_outliers=args.keep_outliers)
+
     # Generate all experiments
-    extractor.generate_all_experiments('ml_experiments')
-    
+    extractor.generate_all_experiments(output_dir=args.output_dir+datetime.now().strftime("_%Y%m%d_%H%M%S"))
+
     print("\n📊 Next steps:")
     print("1. Review ml_experiments/README.md for experiment details")
     print("2. Check ml_experiments/feature_info.json for feature specifications")
