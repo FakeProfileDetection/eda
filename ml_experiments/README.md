@@ -69,16 +69,20 @@ Each feature vector contains:
 
 ## Usage Example
 ```python
-import pandas as pd
+import polars as pl
 
 # Load a specific experiment
-train_data = pd.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_train.csv')
-test_data = pd.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_test.csv')
+train_data = pl.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_train.csv')
+test_data = pl.read_csv('ml_experiments/imputation_global/session_1vs2/dataset_1_test.csv')
 
 # Features start from column index 2 (after user_id and platform_id)
-X_train = train_data.iloc[:, 2:].values
-y_train = train_data['user_id'].values
+X_train = train_data.select(pl.all().exclude(['user_id', 'platform_id'])).to_numpy()
+y_train = train_data['user_id'].to_numpy()
 
-X_test = test_data.iloc[:, 2:].values
-y_test = test_data['user_id'].values
+X_test = test_data.select(pl.all().exclude(['user_id', 'platform_id'])).to_numpy()
+y_test = test_data['user_id'].to_numpy()
 ```
+
+## Performance Note
+This version uses Polars instead of Pandas for significantly faster processing, 
+especially beneficial for large datasets with many users and features.
