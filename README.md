@@ -4,14 +4,23 @@ EDA and analysis on our dataset
 # Focus
 Analyzing and processing the dataset.
 
-# Datasets on shared Google Drive
+# Datasets
+### Raw data from HU_HT
 - The "loadable data" (filtered bad data) is located on the shared drive at https://drive.google.com/drive/folders/1WmdBnrZVIR_I69sMW7i-lcBW-qjQopJl?usp=drive_link.
 - The pre-filter (i.e., contains bad data) is located on the shared drive at https://drive.google.com/drive/folders/1QNuhGxLAC3WWOeK8v7KwgA0oQbD2TuoX?usp=drive_link.
+- (Optional) `download_data.sh` will download the data to a `data_dump` directory in your project root.
 
-# Dataset from Google bucket
-The primary dataset for this project ("loadable_Combined_HU_HT.tar.gz") is downloaded from Google Cloud Storage using the scripts provided in this repository. This ensures you get the correct version of the data integrated with the project setup.
+### Processed data (key1-key2 press pairing)
+- use `./download_processed_data.sh`
 
-The script will download the data to a `data_dump` directory in your project root.
+### Machine learning features data
+- `ml-experients-with-outliers2025-05-31_142307`
+- `ml-experients-without-outliers2025-05-31_143027`
+- Also, both are stored in the shared drive: `https://drive.google.com/drive/folders/1d7VEy-tj9SRFstBrOXYus95j2H9qraeO?usp=drive_link`
+
+
+
+
 
 # References
 TypeNet paper:\
@@ -24,9 +33,7 @@ G Ismail M, Salem MA, Abd El Ghany MA, Aldakheel EA, Abbas S. Outlier detection 
 
 This guide walks you through setting up the complete research environment and data access.
 
-## Quick Start
-
-For team members, follow these steps:
+## Set up your environment:
 
 ```bash
 # 1. Clone the repository
@@ -47,15 +54,22 @@ chmod +x utils.sh # (Utility script, also needs to be executable if directly run
 # setup.bat # Ensure setup.bat is updated for the new two-step process
 
 # 4. Activate the environment
-source activate.sh
-
-# If that doesn't work try this
-# source ./venv-3.12.5/bin/activate
+source ./venv-3.12.5/bin/activate
 
 # On Windows:
 # activate.bat
+```
+# Use extracted features
+This is the best optionn if someone has already processed the datasets. 
+- `ml-experients-with-outliers2025-05-31_142307`
+- `ml-experients-without-outliers2025-05-31_143027`
 
-# 4. Download the research data
+## Alternatively, you can re-process the data and then extract the features
+You'll need to do this for new datasets.
+
+#### Extract ke1-key2 paired typenet features: 
+```bash
+# 1. Download the research data
 # On Linux/Mac:
 ./download_data.sh
 # If you are connecting remotely, use the --headless flag
@@ -63,31 +77,40 @@ source activate.sh
 # On Windows (if a download_data.bat is provided):
 # download_data.bat
 
-# Process data using gemini_process_raw_data.py
-# This is being developed, but you can use it to test uploading and downloading to and from the cloud storage
-python gemini_process_raw_data.py
+# Extract key1-key2 pairing and typenet features
+python typenet_ml_extraction_polars.py
+```
+#### Upload newly extracted features to the cloud
+You can upload your processed dataset to the cloud to make it available to other team members.  However, the default behavior when pulling a processed dataset is to use the most recent based on timestamp.  Only upload if you want everyone to use your dataset.  (Although, users can choose to dowload all processed dataset or select processed datasets...but they need to know which one.)
 
-
-# To upload and download processed data
-chmod +x upload_processed_data.sh download_processed_data.sh
-
-# Create a tar.gz and upload it (then remove the archive locally)
-./upload_processed_data.sh processed_data-<timestamp>-<hostname>
+```bash
+# To upload the dataset and making availble to other team members
+#./upload_processed_data.sh processed_data-<timestamp>-<hostname>
 
 # If you already have an archive, skip packing:
-./upload_processed_data.sh --no-archive processed_data-20250521T143200-myhost.tar.gz
+# ./upload_processed_data.sh --no-archive processed_data-20250521T143200-myhost.tar.gz
 
+```
+#### Download extracted features
+```bash
 # Default (latest):
 ./download_processed_data.sh
 
 # Fetch *all* snapshots:
-./download_processed_data.sh --all
+# ./download_processed_data.sh --all
 
 # Fetch only those from a given host:
-./download_processed_data.sh --hostname myhost
+#./download_processed_data.sh --hostname myhost
 
 # Pick interactively from the list:
-./download_processed_data.sh --interactive
+#./download_processed_data.sh --interactive
+
+```
+
+#### Extract the ml features for training
+```bash
+python typenet_ml_features_polars.py
+```
 
 
 
