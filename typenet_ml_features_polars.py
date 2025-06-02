@@ -366,50 +366,50 @@ class TypeNetMLFeatureExtractor:
         # Define all experiments
         experiments = []
         
-        # Session experiments
-        experiments.append({
-            'name': 'session_1vs2',
-            'type': 'session',
-            'description': 'Session 1 (train) vs Session 2 (test)',
-            'config': {}
-        })
+        # # Session experiments
+        # experiments.append({
+        #     'name': 'session_1vs2',
+        #     'type': 'session',
+        #     'description': 'Session 1 (train) vs Session 2 (test)',
+        #     'config': {}
+        # })
         
-        # 3-choose-2 platform experiments
-        platforms = [1, 2, 3]
-        for test_platform in platforms:
-            train_platforms = [p for p in platforms if p != test_platform]
-            experiments.append({
-                'name': f'platform_3c2_train{train_platforms[0]}{train_platforms[1]}_test{test_platform}',
-                'type': 'platform_3c2',
-                'description': f'Train on platforms {train_platforms}, test on platform {test_platform}',
-                'config': {
-                    'train_platforms': train_platforms,
-                    'test_platform': test_platform
-                }
-            })
+        # # 3-choose-2 platform experiments
+        # platforms = [1, 2, 3]
+        # for test_platform in platforms:
+        #     train_platforms = [p for p in platforms if p != test_platform]
+        #     experiments.append({
+        #         'name': f'platform_3c2_train{train_platforms[0]}{train_platforms[1]}_test{test_platform}',
+        #         'type': 'platform_3c2',
+        #         'description': f'Train on platforms {train_platforms}, test on platform {test_platform}',
+        #         'config': {
+        #             'train_platforms': train_platforms,
+        #             'test_platform': test_platform
+        #         }
+        #     })
         
-        # 3-choose-1 platform experiments
-        for train_platform, test_platform in combinations(platforms, 2):
-            experiments.append({
-                'name': f'platform_3c1_train{train_platform}_test{test_platform}',
-                'type': 'platform_3c1',
-                'description': f'Train on platform {train_platform}, test on platform {test_platform}',
-                'config': {
-                    'train_platform': train_platform,
-                    'test_platform': test_platform
-                }
-            })
+        # # 3-choose-1 platform experiments
+        # for train_platform, test_platform in combinations(platforms, 2):
+        #     experiments.append({
+        #         'name': f'platform_3c1_train{train_platform}_test{test_platform}',
+        #         'type': 'platform_3c1',
+        #         'description': f'Train on platform {train_platform}, test on platform {test_platform}',
+        #         'config': {
+        #             'train_platform': train_platform,
+        #             'test_platform': test_platform
+        #         }
+        #     })
             
-            # Also the reverse
-            experiments.append({
-                'name': f'platform_3c1_train{test_platform}_test{train_platform}',
-                'type': 'platform_3c1',
-                'description': f'Train on platform {test_platform}, test on platform {train_platform}',
-                'config': {
-                    'train_platform': test_platform,
-                    'test_platform': train_platform
-                }
-            })
+            # # Also the reverse
+            # experiments.append({
+            #     'name': f'platform_3c1_train{test_platform}_test{train_platform}',
+            #     'type': 'platform_3c1',
+            #     'description': f'Train on platform {test_platform}, test on platform {train_platform}',
+            #     'config': {
+            #         'train_platform': test_platform,
+            #         'test_platform': train_platform
+            #     }
+            # })
         
         # Generate datasets with both imputation strategies
         for imputation in ['global', 'user']:
@@ -579,7 +579,7 @@ def parse_args():
         "-d",
         "--dataset_path",
         type=str,
-        default="processed_data-2025-05-24_144726-Loris-MBP.cable.rcn.com/typenet_features.csv",
+        default="processed_data/processed_data-2025-05-31_140105-UbuntuSungoddess/typenet_features.csv",
         help="Path to the TypeNet features CSV file",
     )
     parser.add_argument(
@@ -597,13 +597,11 @@ def parse_args():
     )
     return parser.parse_args()
 
+
 # Main execution
 if __name__ == "__main__":
     args = parse_args()
     # Initialize feature extractor
-    typenet_features_path = (
-        "processed_data-2025-05-24_144726-Loris-MBP.cable.rcn.com/typenet_features.csv"
-    )
     extractor = TypeNetMLFeatureExtractor(data_path=args.dataset_path, keep_outliers=args.keep_outliers)
 
     # Generate all experiments

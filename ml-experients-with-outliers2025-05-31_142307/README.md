@@ -2,20 +2,12 @@
 
 ## Directory Structure
 ```
-ml_experiments/
+ml-experients-with-outliers2025-05-31_142307/
 ├── feature_info.json          # List of unigrams, digrams, and feature order
 ├── imputation_global/         # Global mean imputation
 │   ├── dataset_1_full.csv     # User-Platform level features
 │   ├── dataset_2_full.csv     # User-Platform-Session level features
 │   ├── dataset_3_full.csv     # User-Platform-Session-Video level features
-│   └── [experiment_name]/     # Each experiment directory
-│       ├── experiment_info.json
-│       ├── dataset_1_train.csv
-│       ├── dataset_1_test.csv
-│       ├── dataset_2_train.csv
-│       ├── dataset_2_test.csv
-│       ├── dataset_3_train.csv
-│       └── dataset_3_test.csv
 └── imputation_user/           # User-specific mean imputation
     └── ... (same structure)
 ```
