@@ -1,0 +1,1 @@
+Hello world.  What's going on today?  I'm typing once again.  Hopefully, I do not make mistakes such as pushing two keys at the same time. These types of mistakes are difficult to detect.  Are they caused by the user or are they caused by delays in processing the user keystroke times?  That's what we aim to figure out.

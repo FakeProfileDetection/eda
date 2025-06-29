@@ -1,0 +1,1 @@
+Great, now I see that the changes I made did not break this.  Or, maybe the changes haven't settled in GitHub pages. Yet.  Let's check the console and source.  Yes.  I see the changes have posted to GitHub Pages.  Therefore, the only think to do next is to look at the actual data and see if there is an improvement.

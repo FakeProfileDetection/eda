@@ -1,0 +1,1 @@
+typing slower to mimic what a user may actually type.  Why?  Because, i definitely hit multipe keys at once when typing super fast and just pressing any key. That's not realistic because we hope our users won't actually do that. We want them to type content as if they are actually typing workds and not typing jibberish.

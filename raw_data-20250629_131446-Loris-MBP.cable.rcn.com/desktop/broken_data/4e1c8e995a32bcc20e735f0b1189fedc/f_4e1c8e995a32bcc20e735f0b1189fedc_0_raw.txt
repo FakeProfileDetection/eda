@@ -1,0 +1,1 @@
+Hello world. What's going on?  I see the keystroke information in the console. This is interesting for debugging.  Anyways, I don't see the timestamp.  Therefore, I cannot see where the consecutive keystrokes are appearing.  What happens if I never use the backspace?  I will try this in the Instagram post.

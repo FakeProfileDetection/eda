@@ -1,0 +1,6 @@
+{
+  "name": "session_1vs2",
+  "type": "session",
+  "description": "Session 1 (train) vs Session 2 (test)",
+  "config": {}
+}

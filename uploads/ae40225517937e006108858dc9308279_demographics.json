@@ -1,0 +1,22 @@
+{
+  "email": "rajeshjnu2006@gmail.com",
+  "gender": "male",
+  "handedness": "right",
+  "education": "doctorate",
+  "consent_email_for_future": true,
+  "submission_timestamp": "2025-06-22T22:33:23.639Z",
+  "device_info": {
+    "isMobile": false,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0",
+    "screenWidth": 3840,
+    "screenHeight": 1620,
+    "windowWidth": 1629,
+    "windowHeight": 961,
+    "touchCapable": false,
+    "platform": "MacIntel",
+    "vendor": "Google Inc.",
+    "deviceType": "desktop"
+  },
+  "is_mobile": false,
+  "device_type": "desktop"
+}

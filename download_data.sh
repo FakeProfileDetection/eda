@@ -13,17 +13,44 @@
 set -euo pipefail
 
 # ------------------------------------------------- config ---------
-PROJECT_ID="fake-profile-detection-460117"
-BUCKET_NAME="fake-profile-detection-eda-bucket"
-FILE_PATH="loadable_data/loadable_Combined_HU_HT.tar.gz"
+SCRIPT_DIR=''
+ENV_FILE=".env.public"
 
-DATA_DIR_NAME="data_dump"
-ENV_FILE=".env"
-ENV_VAR_NAME="DATA_PATH"
+# Globalize CURRENT variables for ease in piplining scripts
+RAW_DATA_CURRENT=''
+DATA_AFFIX_CURRENT=''
+WEB_APP_DATA_DIR_CURRENT=''
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=utils.sh
-source "${SCRIPT_DIR}/utils.sh"
+
+def setup_environment() {
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # shellcheck source=utils.sh
+  source "${SCRIPT_DIR}/utils.sh"
+  # Source environment variables from .env.public
+  # This file should contain the PROJECT_ID, BUCKET_DIR, FILE_PATH, WEB_APP_DATA_DIR
+  if [[ -f "${SCRIPT_DIR}/.env.public" ]]; then
+    # shellcheck source=.env.public
+    source ${SCRIPT_DIR}/.env.public
+  else
+    print_error "${SCRIPT_DIR}/.env.public not found. Please create it with the required variables."
+    exit 1
+  fi
+
+  # Add recent dataset download/extraction names and paths to .env.current
+  # Each dataset ends in timestamp-hostname
+  DATA_AFFIX_CURRENT="$(date $TIME_FORMAT)-$(hostname)"
+  RAW_DATA_RECENT="$RAW_DATA_DIR-${DATA_AFFIX_CURRENT}"
+  WEB_APP_DATA_DIR_CURRENT="${WEB_APP_DATA_DIR}-${DATA_AFFIX_CURRENT}"
+  
+  # Create .env.current, overwrite whatever exists--append to end of file--should use last line
+  # This can be pushed to the repository to ensure team members have the same environment and dataset version
+  ENV_FILE_CURRENT="${SCRIPT_DIR}/.env.current"
+  echo "DATA_PATH_CURRENT=${RAW_DATA_RECENT}" >> "$ENV_FILE_CURRENT"
+  echo "DATA_AFFIX_CURRENT=${DATA_AFFIX_CURRENT}" >> "$ENV_FILE_CURRENT"
+  echo "WEB_APP_DATA_DIR_CURRENT=${WEB_APP_DATA_DIR_CURRENT}" >> "$ENV_FILE_CURRENT"
+
+}
+
 
 # ------------------------------------------------- flags ----------
 NON_INTERACTIVE=false
@@ -84,8 +111,26 @@ maybe_adc_login() {
   fi
 }
 
+download_web_app_data() {
+  # ----- data directory & (re)download? -----
+  mkdir -p "$WEB_APP_DATA_DIR"
+
+  print_step "Downloading dataset"
+  SRC="gs://$WEB_APP_DATA_SOURCE"
+  DEST="$WEB_APP_DATA_DIR_CURRENT"
+  gcloud storage cp "$SRC" "$DEST"
+
+  if [[ ! -f "$DEST" ]]; then
+      print_error "Failed to download $SRC to $DEST"
+      exit 1
+  fi
+ 
+}
+
 # ------------------------------------------------ main ------------
 main() {
+  setup_environment
+
   print_step "Checking Google Cloud CLI"
   ensure_gcloud || exit 1
 
@@ -96,48 +141,12 @@ main() {
   fi
   maybe_adc_login
 
-  # ----- data directory & (re)download? -----
-  mkdir -p "$DATA_DIR_NAME"
-  CSV_COUNT=$(find "$DATA_DIR_NAME" -name '*.csv' -type f 2>/dev/null | wc -l)
-
-  NEED_DL=true
-  if (( CSV_COUNT > 0 )); then
-      if confirm_or_skip "Found $CSV_COUNT CSV files; re-download and overwrite?"; then
-          NEED_DL=true
-      else
-          NEED_DL=false
-      fi
-  fi
-
-  if $NEED_DL; then
-      print_step "Downloading dataset"
-      SRC="gs://${BUCKET_NAME}/${FILE_PATH}"
-      DEST="${DATA_DIR_NAME}/$(basename "$FILE_PATH")"
-      gcloud storage cp "$SRC" "$DEST"
-
-      print_step "Extracting"
-      tar -xzf "$DEST" -C "$DATA_DIR_NAME"
-
-      if confirm_or_skip "Remove the downloaded archive to save space?"; then
-          rm -f "$DEST"
-      fi
-  fi
+  download_web_app_data
 
   # ----- .env update -----
-  print_step "Setting DATA_PATH in ${ENV_FILE}"
-  ABS_PATH="$(realpath "$DATA_DIR_NAME")"
-
-  if grep -q "^${ENV_VAR_NAME}=" "$ENV_FILE" 2>/dev/null; then
-      sed -i.bak "s|^${ENV_VAR_NAME}=.*|${ENV_VAR_NAME}=${ABS_PATH}|" "$ENV_FILE"
-      rm -f "${ENV_FILE}.bak"
-  else
-      echo "${ENV_VAR_NAME}=${ABS_PATH}" >> "$ENV_FILE"
-  fi
-  print_info "DATA_PATH set to ${ABS_PATH}"
-
   print_step "Done!"
-  print_info "Activate your venv and run:  source activate.sh"
-  print_info "Then notebooks will see os.environ['${ENV_VAR_NAME}']"
+  print_info "To use the raw  dataset, source .env.current and use  $RAW_DATA_CURRENT""
+  
 }
 
 main "$@"

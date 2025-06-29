@@ -1,0 +1,1 @@
+Hello world.  This is me again.  I see that all the keystrokes are being saved to the console. This is useful for debugging. Not sure it's a good idea to keep them there.  Interesting though. Anyway, I will generate sufficient data to test and compare with data from previous version.  let's go!

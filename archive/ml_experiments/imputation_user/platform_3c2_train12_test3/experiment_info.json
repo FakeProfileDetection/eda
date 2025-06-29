@@ -1,0 +1,12 @@
+{
+  "name": "platform_3c2_train12_test3",
+  "type": "platform_3c2",
+  "description": "Train on platforms [1, 2], test on platform 3",
+  "config": {
+    "train_platforms": [
+      1,
+      2
+    ],
+    "test_platform": 3
+  }
+}

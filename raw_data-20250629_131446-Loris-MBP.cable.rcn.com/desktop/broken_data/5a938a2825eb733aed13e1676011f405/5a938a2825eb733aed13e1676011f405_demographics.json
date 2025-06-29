@@ -1,0 +1,23 @@
+{
+  "email": "medlori@gmail.com",
+  "gender": "female",
+  "age": "45_54",
+  "handedness": "ambidextrous",
+  "education": "masters",
+  "consent_email_for_future": true,
+  "submission_timestamp": "2025-06-28T22:41:59.432Z",
+  "device_info": {
+    "isMobile": false,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    "screenWidth": 1920,
+    "screenHeight": 1080,
+    "windowWidth": 828,
+    "windowHeight": 890,
+    "touchCapable": false,
+    "platform": "Linux x86_64",
+    "vendor": "Google Inc.",
+    "deviceType": "desktop"
+  },
+  "is_mobile": false,
+  "device_type": "desktop"
+}

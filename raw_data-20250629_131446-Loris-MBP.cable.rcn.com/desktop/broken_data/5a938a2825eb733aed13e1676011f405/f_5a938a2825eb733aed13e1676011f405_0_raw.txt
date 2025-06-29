@@ -1,0 +1,2 @@
+hello world.  How's it going?
+I've made some fixes for you.  I'm hoping that this results in better performance on keystroke capture.  What I did is implement a WebAssembly keystroke capture function in Rust, replacing our Javascript version which has performance limitations.

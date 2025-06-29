@@ -1,0 +1,126 @@
+{
+  "timestamp": "2025-06-29T13:14:48.839966",
+  "source_directory": "uploads",
+  "target_directory": "raw_data-20250629_131446-Loris-MBP.cable.rcn.com",
+  "dry_run": false,
+  "statistics": {
+    "total_users": 20,
+    "desktop_users": 20,
+    "mobile_users": 0,
+    "complete_users": 1,
+    "incomplete_users": 19,
+    "processing_errors": 0,
+    "files_processed": 42,
+    "txt_files_processed": 18,
+    "users_by_device": {
+      "desktop": [
+        "3741e927ab7d45a7ca19ed47a3eb5864"
+      ],
+      "mobile": []
+    },
+    "broken_users": {
+      "desktop": [
+        "0318841b6067a5d06d9b31bf205cc3ea",
+        "19ac9870aeddf82c4a8de28032c099df",
+        "24234ea889c1b77ce19ae38054e6e7a0",
+        "32105ad7ac5af74a9a7c23a8e0d2f644",
+        "3957538aa7231f92865863c629f71dbb",
+        "4e1c8e995a32bcc20e735f0b1189fedc",
+        "52dff65ee76bfd683ebea9a4ccb7fdde",
+        "54fb82f94361fc5b847269c121c4eacc",
+        "550ff3e0a03340ed1ca66a0717495bff",
+        "5a761d827eba97bf26cc527581dc4296",
+        "5a938a2825eb733aed13e1676011f405",
+        "5b477696451d6d9c1bb8e4f0d40bee6b",
+        "a74d19a94ce2519e5dac099da4fb4830",
+        "ae40225517937e006108858dc9308279",
+        "b7430eecbd5c93321cb6a24d5b7ecb8d",
+        "bddf5b2c8a1e35d67677e460efcc7556",
+        "c75bbb9bbe1d419c66523a881d151e35",
+        "cfa21a190310ba2df4fa40bc52248c08",
+        "f60bf5650aab8c87872813b3ae7a51f2"
+      ],
+      "mobile": []
+    },
+    "errors": []
+  },
+  "platform_mapping": {
+    "f": 1,
+    "i": 2,
+    "t": 3
+  },
+  "sequence_mapping": {
+    "0": [
+      1,
+      1
+    ],
+    "3": [
+      2,
+      1
+    ],
+    "6": [
+      3,
+      1
+    ],
+    "9": [
+      1,
+      2
+    ],
+    "12": [
+      2,
+      2
+    ],
+    "15": [
+      3,
+      2
+    ],
+    "1": [
+      1,
+      1
+    ],
+    "4": [
+      2,
+      1
+    ],
+    "7": [
+      3,
+      1
+    ],
+    "10": [
+      1,
+      2
+    ],
+    "13": [
+      2,
+      2
+    ],
+    "16": [
+      3,
+      2
+    ],
+    "2": [
+      1,
+      1
+    ],
+    "5": [
+      2,
+      1
+    ],
+    "8": [
+      3,
+      1
+    ],
+    "11": [
+      1,
+      2
+    ],
+    "14": [
+      2,
+      2
+    ],
+    "17": [
+      3,
+      2
+    ]
+  }
+}
